@@ -37,6 +37,7 @@ import {
   Plus,
   ShieldCheck,
   Trash2,
+  Menu,
 } from "lucide-react";
 import { mutate, restore, seed, snapshot } from "../db";
 import {
@@ -68,6 +69,29 @@ type Run = (fn: () => Promise<unknown>, message?: string) => Promise<boolean>;
 type Context = { data: Backup; run: Run };
 const finish = (p: number) =>
   `${p}${p === 1 ? "st" : p === 2 ? "nd" : p === 3 ? "rd" : "th"}`;
+function roundRisk(fee: number, balance: number, limit: number) {
+  const percent = balance > 0 ? (fee / balance) * 100 : 100;
+  if (percent <= limit)
+    return {
+      level: "Low risk",
+      className: "low",
+      message: `Within your ${limit}% entry-risk limit.`,
+      percent,
+    };
+  if (percent <= limit * 2)
+    return {
+      level: "Caution",
+      className: "medium",
+      message: `Above your ${limit}% entry-risk limit.`,
+      percent,
+    };
+  return {
+    level: "High risk",
+    className: "high",
+    message: `This entry is far above your ${limit}% risk limit.`,
+    percent,
+  };
+}
 function Amount({ n }: { n: number }) {
   return <span className={n < 0 ? "s-loss" : "s-gain"}>{signed(n)}</span>;
 }
@@ -114,7 +138,8 @@ export function Sheet({
 export default function SimpleApp() {
   const [failure, setFailure] = useState(""),
     [notice, setNotice] = useState(""),
-    [storageError, setStorageError] = useState("");
+    [storageError, setStorageError] = useState(""),
+    [menuOpen, setMenuOpen] = useState(false);
   const data = useLiveQuery(async () => {
     try {
       return await snapshot();
@@ -210,9 +235,18 @@ export default function SimpleApp() {
                 More
               </NavLink>
             </nav>
-            <Link to="/more" className="s-profile" aria-label="Your profile">
-              {data.settings.player.slice(0, 1).toUpperCase()}
-            </Link>
+            <div className="s-header-actions">
+              <Link to="/more" className="s-profile" aria-label="Your profile">
+                {data.settings.player.slice(0, 1).toUpperCase()}
+              </Link>
+              <button
+                className="s-menu-button"
+                aria-label="Open advanced tools menu"
+                onClick={() => setMenuOpen(true)}
+              >
+                <Menu size={21} />
+              </button>
+            </div>
           </>
         )}
       </header>
@@ -294,6 +328,29 @@ export default function SimpleApp() {
           <button className="s-primary s-full" onClick={() => setFailure("")}>
             Got it
           </button>
+        </Sheet>
+      )}
+      {menuOpen && (
+        <Sheet title="Menu" close={() => setMenuOpen(false)}>
+          <p className="s-menu-intro">
+            Your everyday tracker stays simple. The full toolkit is always one
+            tap away.
+          </p>
+          <nav className="s-menu-links" aria-label="Advanced tools">
+            {[
+              ["/courses", "Courses & saved prizes"],
+              ["/clubs", "Club details"],
+              ["/tools/history", "Full match history"],
+              ["/bankroll", "Rewards & coin details"],
+              ["/focus", "Focus details"],
+              ["/tools/data", "CSV export, settings & reset"],
+            ].map(([to, title]) => (
+              <Link key={to} to={to} onClick={() => setMenuOpen(false)}>
+                <span>{title}</span>
+                <ChevronRight size={17} />
+              </Link>
+            ))}
+          </nav>
         </Sheet>
       )}
     </div>
@@ -406,6 +463,13 @@ function Play({ data, run }: Context) {
       tier: Tier;
       clubId: string;
     } | null>(null),
+    [pending, setPending] = useState<{
+      position: number;
+      tier: Tier;
+      clubId: string;
+      prize: number;
+      remember: boolean;
+    } | null>(null),
     [last, setLast] = useState<Match | null>(null),
     [busy, setBusy] = useState(false);
   const lock = useRef(false);
@@ -422,7 +486,7 @@ function Play({ data, run }: Context) {
     if (lock.current || !t || !c) return;
     lock.current = true;
     setBusy(true);
-    await run(
+    const ok = await run(
       async () => {
         let saved: Match | undefined;
         await mutate((b) => {
@@ -433,6 +497,7 @@ function Play({ data, run }: Context) {
       },
       `${finish(position)} place saved`,
     );
+    if (ok) setPending(null);
     setBusy(false);
     lock.current = false;
   }
@@ -447,7 +512,14 @@ function Play({ data, run }: Context) {
     }
     const prize = tier.prizes[position - 1];
     if (prize === null) setPayout({ position, tier, clubId: club!.id });
-    else void record(position, prize);
+    else
+      setPending({
+        position,
+        tier,
+        clubId: club!.id,
+        prize,
+        remember: false,
+      });
   }
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -457,7 +529,13 @@ function Play({ data, run }: Context) {
           e.target.isContentEditable)
       )
         return;
-      if (!setup && !payout && !balanceSheet && /^[1-6]$/.test(e.key)) {
+      if (
+        !setup &&
+        !payout &&
+        !pending &&
+        !balanceSheet &&
+        /^[1-6]$/.test(e.key)
+      ) {
         e.preventDefault();
         tap(Number(e.key));
       }
@@ -475,9 +553,36 @@ function Play({ data, run }: Context) {
           </h1>
           <p>A quick tap after a round. Back to the game.</p>
         </div>
-        <span className="s-beta">
-          CLAN TEST RUN <span>✦</span>
-        </span>
+        <div className="s-home-actions">
+          <button
+            className="s-theme-toggle"
+            aria-label={
+              data.settings.theme === "dark"
+                ? "Switch to light mode"
+                : "Switch to dark mode"
+            }
+            onClick={() =>
+              run(
+                () =>
+                  mutate((b) => {
+                    b.settings.theme =
+                      b.settings.theme === "dark" ? "light" : "dark";
+                  }),
+                "Theme changed",
+              )
+            }
+          >
+            {data.settings.theme === "dark" ? (
+              <Sun size={17} />
+            ) : (
+              <Moon size={17} />
+            )}
+            <span>{data.settings.theme === "dark" ? "Light" : "Dark"}</span>
+          </button>
+          <span className="s-beta">
+            CLAN TEST RUN <span>✦</span>
+          </span>
+        </div>
       </div>
       <div className="s-play-grid">
         <section className="s-round-card">
@@ -505,7 +610,7 @@ function Play({ data, run }: Context) {
           </button>
           <div className="s-finish-heading">
             <h2>Where did you finish?</h2>
-            <span>Tap to save</span>
+            <span>Tap, review, then save</span>
           </div>
           <div className="s-finishes">
             {[1, 2, 3, 4, 5, 6].map((p) => (
@@ -692,13 +797,14 @@ function Play({ data, run }: Context) {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              void record(
-                payout.position,
-                Number(input(e.currentTarget, "prize")),
-                input(e.currentTarget, "remember") === "on",
-                payout.tier,
-                payout.clubId,
-              );
+              setPending({
+                position: payout.position,
+                tier: payout.tier,
+                clubId: payout.clubId,
+                prize: Number(input(e.currentTarget, "prize")),
+                remember: input(e.currentTarget, "remember") === "on",
+              });
+              setPayout(null);
             }}
           >
             <label>
@@ -723,9 +829,90 @@ function Play({ data, run }: Context) {
               saved prizes under Change → Saved prizes.
             </p>
             <button className="s-primary s-full" disabled={busy}>
-              Save this round <Check size={18} />
+              Review round <ArrowRight size={18} />
             </button>
           </form>
+        </Sheet>
+      )}
+      {pending && (
+        <Sheet title="Save this round?" close={() => setPending(null)}>
+          {(() => {
+            const risk = roundRisk(
+              pending.tier.fee,
+              balance,
+              data.settings.risk,
+            );
+            return (
+              <div className={`s-risk-check ${risk.className}`}>
+                <div>
+                  <span>Entry risk</span>
+                  <strong>{risk.level}</strong>
+                </div>
+                <strong>{risk.percent.toFixed(1)}%</strong>
+                <p>
+                  {risk.message} Your balance after paying the entry will be{" "}
+                  <b>{coins(balance - pending.tier.fee)}</b> coins. A{" "}
+                  {data.settings.risk}% entry would be at most{" "}
+                  <b>
+                    {coins(
+                      Math.max(
+                        0,
+                        Math.floor((balance * data.settings.risk) / 100),
+                      ),
+                    )}
+                  </b>{" "}
+                  coins.
+                </p>
+              </div>
+            );
+          })()}
+          <div className="s-round-review">
+            <div>
+              <span>Finish</span>
+              <strong>{finish(pending.position)}</strong>
+            </div>
+            <div>
+              <span>Course</span>
+              <strong>
+                {data.courses.find((c) => c.id === pending.tier.courseId)?.name}
+              </strong>
+            </div>
+            <div>
+              <span>Club</span>
+              <strong>
+                {data.clubs.find((c) => c.id === pending.clubId)?.name}
+              </strong>
+            </div>
+            <div>
+              <span>Entry</span>
+              <strong>−{coins(pending.tier.fee)}</strong>
+            </div>
+            <div>
+              <span>Prize</span>
+              <strong>+{coins(pending.prize)}</strong>
+            </div>
+            <div className="s-review-total">
+              <span>Coin change</span>
+              <strong>
+                <Amount n={pending.prize - pending.tier.fee} />
+              </strong>
+            </div>
+          </div>
+          <button
+            className="s-primary s-full"
+            disabled={busy}
+            onClick={() =>
+              void record(
+                pending.position,
+                pending.prize,
+                pending.remember,
+                pending.tier,
+                pending.clubId,
+              )
+            }
+          >
+            Save round <Check size={18} />
+          </button>
         </Sheet>
       )}
     </>
