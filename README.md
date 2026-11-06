@@ -23,8 +23,12 @@ npm run build
 ## Project structure
 
 - `src/main.tsx` — application entry and hash routing
-- `src/App.tsx` — navigation, layout, notifications and theme
-- `src/pages/` — onboarding and all eight application pages
+- `src/simple/SimpleApp.tsx` — active Play, Progress and More interface, onboarding and quick-entry sheets
+- `src/simple/actions.ts` — validated round setup, quick results and balance correction
+- `src/simple/actions.test.ts` — regression tests for the simplified flow
+- `src/simple/simple.css` — responsive simplified interface
+- `src/App.tsx` — retained original layout (not the application entry)
+- `src/pages/` — detailed tools, opened from More → Advanced tools
 - `src/components.tsx` — shared cards, dialogs, charts and illustrations
 - `src/shared.tsx` — filters, stat cards, match table/editor and export helpers
 - `src/context.ts` — shared page prop types
@@ -42,21 +46,27 @@ Every browser starts with onboarding. Players can create a fresh profile with th
 
 The historical import contains three summaries, not fabricated chronological matches:
 
-| Course / club | Matches | Verified net profit |
-| --- | ---: | ---: |
-| Rocky Mountains / editable placeholder | 30 | +675 |
-| Snowy Valley / Alaska | 2 | -400 |
-| Snowy Valley / White Bear | 2 | +200 |
-| Total | 34 | +475 |
+| Course / club                          | Matches | Verified net profit |
+| -------------------------------------- | ------: | ------------------: |
+| Rocky Mountains / editable placeholder |      30 |                +675 |
+| Snowy Valley / Alaska                  |       2 |                -400 |
+| Snowy Valley / White Bear              |       2 |                +200 |
+| Total                                  |      34 |                +475 |
 
 The opening balance is 3,600 when loading this history. The +475 is included in performance analytics but **never applied again to the balance**. The two Snowy Valley pairs also stay as summaries because individual prizes and dates are unknown; their known finish order appears in their descriptions. No dates are invented. Only the supplied Rocky Mountains first-place prize (500) is preconfigured. All other prizes remain unknown until explicitly entered. Club levels and Rocky club stats are clearly marked as editable placeholders.
+
+## Simple everyday flow
+
+The main navigation has only **Play, Progress and More**. Start with a nickname (optional) and your current coins. Choose a course, entry fee and optional club once. Tap your finishing position after each round. Unknown prizes are explicitly confirmed the first time; remembering a prize makes subsequent entries one tap. No club stats, mood, notes or session setup are required.
+
+Play shows your coins and six finish buttons. Progress shows results and simple course totals. More holds backups, theme and the optional advanced tools. Existing databases and backups remain compatible; no reset or migration is required. Updating the current coin balance records a correction without changing match profit.
 
 ## Working features
 
 - One-tap finish recording once payouts are configured; keyboard keys 1–6
 - Last-used course/tier/club, optional notes and focus, strokes, shootout and mistake flags
 - Unknown payout prompt, insufficient balance check and undo
-- Dashboard, dated match history, course analytics, club garage, bankroll, focus and settings pages
+- Simple Play and Progress screens; detailed history, course analytics, club garage, bankroll, focus and settings available under More → Advanced tools
 - Course/tier/club creation and editing; deletion guarded against orphaned records
 - Edit/delete matches and historical summaries; all following balances derive from the ledger
 - Separate reward/correction transactions, editable risk limit and custom milestones
@@ -92,6 +102,6 @@ No environment variables or backend secrets are needed. HTTPS is required for se
 
 ## Verification
 
-Run `npm test` for the automated accounting and import tests. Browser smoke checks cover history onboarding, payout-required logging, balance updates, undo and summary presentation. Production build runs TypeScript checking before bundling.
+Run `npm test` for 20 automated accounting, import and quick-entry tests. Browser smoke checks cover history onboarding, payout-required logging, balance updates, undo and summary presentation. Production build runs TypeScript checking before bundling.
 
 Future backend expansion can replace `db.ts` with a repository/synchronization layer and keep the domain models. Account separation, sync conflict rules, and server-side validation should precede any shared cloud deployment.
