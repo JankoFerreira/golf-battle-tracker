@@ -2,7 +2,8 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  base: mode === "github-pages" ? "/golf-battle-tracker/" : "/",
   server: { allowedHosts: ["terminal.local"] },
   build: {
     rollupOptions: {
@@ -28,7 +29,7 @@ export default defineConfig({
         display: "standalone",
         icons: [
           {
-            src: "/icon.svg",
+            src: "icon.svg",
             sizes: "any",
             type: "image/svg+xml",
             purpose: "any",
@@ -41,4 +42,4 @@ export default defineConfig({
       },
     }),
   ],
-});
+}));

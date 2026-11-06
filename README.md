@@ -91,6 +91,12 @@ There is no server, account system, cloud synchronization or shared leaderboard.
 
 The offline service worker is enabled in production, not the Vite development server. Installability varies by browser; on iPhone use Safari → Share → Add to Home Screen. No direct connection to Miniclip or automatic game telemetry is implemented. This is an independent fan tool.
 
+## GitHub Pages deployment
+
+The `.github/workflows/pages.yml` workflow tests, builds and deploys every push to `main`. Repository Settings → Pages → Source must be **GitHub Actions**. The build command is `npm run build -- --mode github-pages`, which scopes assets, the manifest and service worker to `/golf-battle-tracker/`. Normal builds keep `/` for other hosts.
+
+Moving hosts does not transfer IndexedDB data: download a JSON backup under More on the old host, then restore it under More on the new host. The deployment does not enable visitor analytics. Repository Traffic counts repository visitors, not app usage; website analytics needs a separately configured service.
+
 ## Netlify deployment
 
 1. Push this project to a GitHub repository.
